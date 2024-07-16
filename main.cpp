@@ -8,8 +8,8 @@ int main (int argc, char **argv)
     Grafo *grafo = new Grafo (in);
     grafo->imprime ();  
 
-    //grafo->buscaEmLargura();
-    //grafo->buscaEmProfundidade();
+    grafo->buscaEmLargura();
+    grafo->buscaEmProfundidade();
 
     //1- Verificar se o grafo possui ciclos.
     if(grafo->temCiclo()){
@@ -26,7 +26,5 @@ int main (int argc, char **argv)
     //grafo->imprimeCaminho(0,6);
 
     grafo->ordenacaoTopologica();
-
-    grafo->kruskal();
 
 }
