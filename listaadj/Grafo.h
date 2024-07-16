@@ -224,7 +224,7 @@ using namespace std;
       //cout << "-" << u << " cor: " << cor[u] << " dist: " << dist[u] << " ant: " << antecessor[u]  << "\n" << endl;
     }
   }
-  //BUSCA EM PORFUNDIDADE
+  //BUSCA EM PROFUNDIDADE
   void Grafo::buscaEmProfundidade() {
     vector<string> cor(numVertices, "branco");
     vector<int> antecessor(numVertices, -1);
@@ -314,7 +314,6 @@ using namespace std;
     }
   }
   //MOSTRAR UMA ORDENAÇÃO TOPOLOGICA PARA O GRAFO
-  /*
   void Grafo::visitaDfsTopologica(int u, vector<string>& cor, stack<int>& pilha) {
     cor[u] = "cinza";
 
@@ -348,109 +347,6 @@ using namespace std;
     }
     cout << endl;
   }
-  //CRIR UMA ARVORE GERADORA MINIMA USANDO ALGORITIMO DE KRUSKAL
-  void Grafo::kruskal(){
-    vector<Grafo::Aresta*> arestasAGM;
-    criaConjunto();
-
-    vector<pair<int, pair<int, int>>> arestaOrdenas;;
-    for(int u = 0; u < numVertices; u++){
-      Grafo::Aresta* adj = primeiroListaAdj(u);
-      while (adj != nullptr){
-        int v = adj->_v2();
-        int peso = adj->_peso();
-        arestaOrdenas.push_back({peso, {u,v}});
-        adj = proxAdj(u);
-      }
-    }
-    sort(arestaOrdenas.begin(), arestaOrdenas.end());
-
-    for (auto & aresta : arestaOrdenas){
-      int u = aresta.second.first;
-      int v = aresta.second.second;
-      if(encontreConjunto(u) != encontreConjunto(v)){
-        arestasAGM.push_back(new Grafo::Aresta(u, v, aresta.first));
-        unirConjunto(u,v);
-      }
-    }
-    
-    cout << "Árvore Geradora Mínima (AGM) encontrada por Kruskal:" << endl;
-    for(auto& aresta : arestasAGM){
-              cout << "(" << aresta->_v1() << ", " << aresta->_v2() << ") - Peso: " << aresta->_peso() << endl;
-    }
-  }
-
-  void Grafo::criaConjunto(){
-    for (int v = 0; v < numVertices; ++v) {
-        conjunto[v] = -1;
-    }
-  }
   
-  int Grafo::encontreConjunto(int x){
-    if(conjunto[x] == -1){
-      return x;
-    }
-    return encontreConjunto(conjunto[x]);
-  }
-
-  void Grafo::unirConjunto(int x, int y){
-    int conjuntoX = encontreConjunto(x);
-    int conjuntoY = encontreConjunto(y);
-    conjunto[conjuntoX] = conjuntoY;
-  }
-  */
-
-//CRIA UM ARVORE GERADORA MINIMA ULTILIZANDO ALGORITMO PRIM
-  void Grafo::prim(int raiz) {
-    const int INF = INT8_MAX; // Definindo infinito como o maior valor possível
-    double* peso = new double[numVertices]; // Array para armazenar os pesos dos vértices
-    int* antecessor = new int[numVertices]; // Array para armazenar os antecessores dos vértices na AGM
-    bool* itensHeap = new bool[numVertices]; // Array para rastrear se um vértice está no heap ou não
-    int* vs = new int[numVertices + 1]; // Array para heap indireto
-
-    for (int u = 0; u < numVertices; ++u) {
-        peso[u] = INF; // Inicializa os pesos como infinito
-        antecessor[u] = -1; // Inicializa os antecessores como -1 (indicando nenhum antecessor)
-        itensHeap[u] = true; // Inicializa todos os vértices como presentes no heap
-        vs[u + 1] = u; // Inicializa o heap indireto
-    }
-
-    peso[raiz] = 0; // Define o peso da raiz como 0
-
-    FPHeapMinIndireto<double> Q(peso, vs, numVertices); // Criação do heap
-
-    while (!Q.vazio()) {
-        int u = Q.retiraMin(); // Retira o vértice de menor peso do heap
-        itensHeap[u] = false; // Marca o vértice como retirado do heap
-
-        Aresta* adj = primeiroListaAdj(u); // Obtém as arestas adjacentes ao vértice u
-        while (adj != nullptr) {
-            int v = adj->_v2(); // Obtém o segundo vértice da aresta (o vértice adjacente)
-            int pesoAresta = adj->_peso(); // Obtém o peso da aresta
-
-            if (itensHeap[v] && pesoAresta < peso[v]) {
-                antecessor[v] = u; // Define o vértice u como antecessor de v
-                Q.diminuiChave(v, pesoAresta); // Atualiza o peso de v no heap
-            }
-
-            adj = proxAdj(u); // Passa para a próxima aresta adjacente
-        }
-    }
-
-    // Imprime a Árvore Geradora Mínima encontrada por Prim
-    cout << "Árvore Geradora Mínima (AGM) encontrada por Prim:" << endl;
-    for (int v = 0; v < numVertices; ++v) {
-        if (antecessor[v] != -1) { // Se o vértice tem um antecessor na AGM
-            cout << "(" << antecessor[v] << ", " << v << ")" << endl; // Imprime a aresta (antecessor[v], v)
-        }
-    }
-
-    // Libera memória alocada dinamicamente
-    delete[] peso;
-    delete[] antecessor;
-    delete[] itensHeap;
-    delete[] vs;
-}
-
 
 
