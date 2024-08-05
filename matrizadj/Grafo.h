@@ -42,6 +42,8 @@ using namespace std;
     Grafo *grafoTransposto();
     Grafo *grafoNaoDirecionado();
     ~Grafo ();	  
+
+    void floydWarshall();
 	};
 
   Grafo::Grafo( istream &in )
@@ -180,6 +182,41 @@ using namespace std;
     delete [] this->pos;
   }
 
+  void Grafo::floydWarshall() {
+    vector<vector<int>> dist(numVertices, vector<int>(numVertices, INT8_MAX));
+
+    for (int i = 0; i < numVertices; ++i) {
+      for (int j = 0; j < numVertices; ++j) {
+        if (i == j) {
+          dist[i][j] = 0;
+        } else if (mat[i][j] != 0) {
+          dist[i][j] = mat[i][j];
+        }
+      }
+    }
+
+    for (int k = 0; k < numVertices; ++k) {
+      for (int i = 0; i < numVertices; ++i) {
+        for (int j = 0; j < numVertices; ++j) {
+          if (dist[i][k] != INT8_MAX && dist[k][j] != INT8_MAX && dist[i][k] + dist[k][j] < dist[i][j]) {
+            dist[i][j] = dist[i][k] + dist[k][j];
+          }
+        }
+      }
+    }
+
+    cout << "MAtriz de distancia Floyd-Warshall:" << endl;
+    for (int i = 0; i < numVertices; ++i) {
+      for (int j = 0; j < numVertices; ++j) {
+      if (dist[i][j] == INT8_MAX) {
+        cout << "INF ";
+        } else {
+          cout << dist[i][j] << " ";
+      }
+      }
+      cout << endl;
+    }
+  }
 
 
 		
