@@ -43,6 +43,7 @@ using namespace std;
     Grafo *grafoNaoDirecionado();
     ~Grafo ();	  
 
+    void floydWarshall(int start, int end);
     void floydWarshall();
 	};
 
@@ -182,6 +183,66 @@ using namespace std;
     delete [] this->pos;
   }
 
+  void Grafo::floydWarshall(int start, int end) {
+    vector<vector<int>> dist(numVertices, vector<int>(numVertices, INT8_MAX));
+    vector<vector<int>> pred(numVertices, vector<int>(numVertices, -1));//
+
+    for (int i = 0; i < numVertices; ++i) {
+      for (int j = 0; j < numVertices; ++j) {
+        if (i == j) {
+          dist[i][j] = 0;
+        } else if (mat[i][j] != 0) {
+          dist[i][j] = mat[i][j];
+          pred[i][j] = i;//
+        }
+      }
+    }
+
+    for (int k = 0; k < numVertices; ++k) {
+      for (int i = 0; i < numVertices; ++i) {
+        for (int j = 0; j < numVertices; ++j) {
+          if (dist[i][k] != INT8_MAX && dist[k][j] != INT8_MAX && dist[i][k] + dist[k][j] < dist[i][j]) {
+            dist[i][j] = dist[i][k] + dist[k][j];
+            pred[i][j] = pred[k][j];//
+          }
+        }
+      }
+    }
+
+    cout << "Matriz de distancia Floyd-Warshall:" << endl;
+    for (int i = 0; i < numVertices; ++i) {
+      for (int j = 0; j < numVertices; ++j) {
+      if (dist[i][j] == INT8_MAX) {
+        cout << "INF ";
+        } else {
+          cout << dist[i][j] << " ";
+      }
+      }
+      cout << endl;
+    }
+
+
+    auto imprimirCaminho = [&](int start , int end){
+      if(dist[start][end] == INT8_MAX){
+        cout << "Não existe caminho entre " << start << " e " << end << endl;
+        return;
+      }
+      vector<int> path;
+        for (int v = end; v != -1; v = pred[start][v]) {
+            path.push_back(v);
+        }
+      reverse(path.begin(), path.end());
+      cout << "\nCaminho minimo de " << start << " para " << end << " : " << endl;
+      for(int v : path){
+        cout << v << " ";
+      }
+      cout << endl;
+    };
+
+    //imprimir caminho
+    imprimirCaminho(start, end);
+  }
+
   void Grafo::floydWarshall() {
     vector<vector<int>> dist(numVertices, vector<int>(numVertices, INT8_MAX));
 
@@ -205,7 +266,7 @@ using namespace std;
       }
     }
 
-    cout << "MAtriz de distancia Floyd-Warshall:" << endl;
+    cout << "Matriz de distancia Floyd-Warshall:" << endl;
     for (int i = 0; i < numVertices; ++i) {
       for (int j = 0; j < numVertices; ++j) {
       if (dist[i][j] == INT8_MAX) {
@@ -217,6 +278,5 @@ using namespace std;
       cout << endl;
     }
   }
-
 
 		

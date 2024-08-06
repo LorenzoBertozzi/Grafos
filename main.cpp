@@ -9,4 +9,6 @@ int main (int argc, char **argv)
     grafo->imprime ();  
 
     grafo->floydWarshall();
+
+    grafo->floydWarshall(1,4);
 }
