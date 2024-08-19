@@ -6,6 +6,7 @@
 #include <cstring>
 #include <float.h>
 using namespace std;
+
 	class Grafo {
 	public:
 		class Aresta {
@@ -41,7 +42,10 @@ using namespace std;
     int _numVertices() const;
     Grafo *grafoTransposto();
     Grafo *grafoNaoDirecionado();
-    ~Grafo ();	  
+    ~Grafo ();	
+
+    vector<int> maxClique(); 
+    bool isClique(vector<int>& subset);
 	};
 
   Grafo::Grafo( istream &in )
@@ -180,6 +184,46 @@ using namespace std;
     delete [] this->pos;
   }
 
+  bool Grafo::isClique(vector<int>& subset) {
+      for (size_t i = 0; i < subset.size(); ++i) {
+          for (size_t j = i + 1; j < subset.size(); ++j) {
+              if (!existeAresta(subset[i], subset[j]) && !existeAresta(subset[j], subset[i])) {
+                  return false;
+              }
+          }
+      }
+      return true;
+  }
 
+  vector<int> Grafo::maxClique() {
+      vector<int> bestClique;
+      vector<int> vertices(numVertices);
+      
+      // Inicializa o vetor com todos os vértices
+      for (int i = 0; i < numVertices; ++i) {
+          vertices[i] = i;
+      }
 
+      // Tenta todas as combinações possíveis de vértices
+      for (int r = 1; r <= numVertices; ++r) {
+          vector<bool> comb(numVertices);
+          fill(comb.end() - r, comb.end(), true);
+
+          do {
+              vector<int> subset;
+              for (int i = 0; i < numVertices; ++i) {
+                  if (comb[i]) {
+                      subset.push_back(vertices[i]);
+                  }
+              }
+
+              if (isClique(subset) && subset.size() > bestClique.size()) {
+                  bestClique = subset;
+              }
+
+          } while (next_permutation(comb.begin(), comb.end()));
+      }
+
+      return bestClique;
+  }
 		
