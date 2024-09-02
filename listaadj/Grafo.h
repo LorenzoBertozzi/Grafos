@@ -7,7 +7,7 @@
 #include <array>
 #include <cstring>
 #include <float.h>
-#include <stack>
+#include <set>
 using namespace std;
 
 	class Grafo {
@@ -15,7 +15,6 @@ using namespace std;
 		class Aresta {
 	  private:
 	    int v1, v2, peso; 
-
 	  public: 
 	    Aresta (int v1, int v2, int peso) {
 	      this->v1 = v1; this->v2 = v2; this->peso = peso;
@@ -54,8 +53,6 @@ using namespace std;
 	  }; 
     Lista<Celula> *adj; 
     int numVertices;
-    vector <int> conjunto;
-
   public:
     Grafo( istream &in );
     Grafo (int numVertices);	  
@@ -70,25 +67,13 @@ using namespace std;
 	  void imprime () const ;
 	  int _numVertices () const;
 	  Grafo *grafoTransposto ();
-    ~Grafo ();	
+    ~Grafo ();	 
 
-    void buscaEmLargura ();
-    void visitaBfs (int u, vector <string>& cor, vector <int>&dist, vector <int>&antecessor);
-    void buscaEmProfundidade();
-    void visitaDFS(int u, vector<string>& cor, vector<int>& antecessor);
-    bool temCiclo(); // verifica se o grafo tem cilho 
-    bool visitaDFSComCiclo(int u, vector<string>& cor);//busca ciclo do grafo
-    int contarComponentes(); //retorna quantidade de vertices
-    void visitaDfsTopologica(int u, vector<string>& cor, stack<int>& pilha);
-    void ordenacaoTopologica();//Mostrar uma ordenação topológica
-    void imprimeCaminho (int u, int v);
-
-    void kruskal();
-    void criaConjunto();
-    int encontreConjunto(int x);
-    void unirConjunto(int x, int y);
-
-    void prim(int raiz);
+    bool isPlanar(); 
+  
+  private:
+    bool isHomeomorphicToK5(const std::vector<Aresta*>& subgraph);
+    bool isHomeomorphicToK33(const std::vector<Aresta*>& subgraph);
 	};
 
   Grafo::Grafo( istream &in )
@@ -113,6 +98,7 @@ using namespace std;
   	this->adj = new Lista<Celula>[numVertices]; 
   	this->numVertices = numVertices; 	  	
   }	  
+
   Grafo::Aresta *lerAresta () {
     cout << "Aresta:" << endl;
     cout << "  V1:"; int v1 = 0;
@@ -182,171 +168,85 @@ using namespace std;
   Grafo::~Grafo () {
     delete [] this->adj;
   }	  
-  //BUSCA EM LARGURA
-  void Grafo::buscaEmLargura(){
-    vector <string> cor (numVertices, "branco");
-    vector <int> dist (numVertices, INT8_MAX);
-    vector <int> antecessor(numVertices, -1);
 
-    for (int u = 0; u < numVertices; u++){
-      if(cor[u] == "branco"){
-        visitaBfs(u, cor, dist, antecessor);
+  bool Grafo::isPlanar(){
+    //step 1 : encontrar todos subgrafos de Kuratowski
+    std::vector< std::vector<Aresta*> > kuratowskiSubgraphs;
+    for (int v = 0; v < this->numVertices; v++) {
+      for (Aresta* adj = this->primeiroListaAdj(v); adj != NULL; adj = this->proxAdj(v)) {
+        int v2 = adj->_v2();
+        for (Aresta* adj2 = this->primeiroListaAdj(v2); adj2 != NULL; adj2 = this->proxAdj(v2)) {
+          int v3 = adj2->_v2();
+          if (v != v3 && this->existeAresta(v, v3)) {
+            // encontre um K4 subgraph (grafo completo com 4 vertices)
+            std::vector<Aresta*> subgraph;
+            subgraph.push_back(adj);
+            subgraph.push_back(adj2);
+            subgraph.push_back(this->retiraAresta(v, v3));
+            kuratowskiSubgraphs.push_back(subgraph);
+          }
+        }
       }
     }
-  }	
-  void Grafo::visitaBfs(int u, vector <string>& cor, vector <int>&dist, vector <int>&antecessor){
-    dist[u] = 0;
-    cor[u] = "cinza";
-
-    //cout << "-" << u << " cor: " << cor[u] << " dist: " << dist[u] << " ant: " << antecessor[u] << endl;
-
-    queue<int> fila;
-    fila.push(u);
-
-    while (!fila.empty()){
-      u = fila.front();
-      fila.pop();
-      Aresta* adj = primeiroListaAdj(u);
-      while (adj != NULL){
-        int v= adj->_v2();
-        if(cor[v] == "branco"){
-          cor[v] = "cinza";
-          dist[v] = dist[u] + 1;
-          antecessor[v] = u;
-          fila.push(v);
-
-          //cout << "-" << v << " cor: " << cor[v] << " dist: " << dist[v] << " ant: " << antecessor[v] << endl;
-        }
-        adj = proxAdj(u);
+    //step 2: checando os subgrafos se são k5 ou k3,3
+    for (std::vector<std::vector<Aresta*> >::iterator it = kuratowskiSubgraphs.begin(); it != kuratowskiSubgraphs.end(); ++it) {
+      std::vector<Aresta*>& subgraph = *it;
+      if (isHomeomorphicToK5(subgraph) || isHomeomorphicToK33(subgraph)) {
+        return false; // Graph is not planar
       }
-      cor[u] = "preto";
-
-      //cout << "-" << u << " cor: " << cor[u] << " dist: " << dist[u] << " ant: " << antecessor[u]  << "\n" << endl;
     }
+    return true; //grafo é planar
   }
-  //BUSCA EM PROFUNDIDADE
-  void Grafo::buscaEmProfundidade() {
-    vector<string> cor(numVertices, "branco");
-    vector<int> antecessor(numVertices, -1);
 
-    for (int u = 0; u < numVertices; u++) {
-        if (cor[u] == "branco") {
-          //cout << u << " cor : " << cor[u] << " antecessor : " << antecessor[u] << endl;
-          visitaDFS(u, cor, antecessor);
+  bool Grafo::isHomeomorphicToK5(const std::vector<Aresta*>& subgraph) {
+    // verifica se o subgrafo tem 5 vertices e 10 arestas
+    if (subgraph.size() != 10) return false;
+    std::set<int> vertices;
+    for (std::vector<Aresta*>::const_iterator it = subgraph.begin(); it != subgraph.end(); ++it) {
+      Aresta* aresta = *it;
+      vertices.insert(aresta->_v1());
+      vertices.insert(aresta->_v2());
+    }
+    if (vertices.size() != 5) return false;
+
+    // verifica se o grafo é conectado a nao tem ciclos de larguura 3
+    for (std::set<int>::iterator it = vertices.begin(); it != vertices.end(); ++it) {
+      int v = *it;
+      if (this->listaAdjVazia(v)) return false;
+      for (Aresta* adj = this->primeiroListaAdj(v); adj != NULL; adj = this->proxAdj(v)) {
+        int v2 = adj->_v2();
+        if (vertices.count(v2) && this->existeAresta(v, v2)) {
+          // Fencotra cilo de largura 3
+          return false;
         }
+      }
     }
+
+    return true; // subgrafo é k5
   }
-  void Grafo::visitaDFS(int u, vector<string>& cor, vector<int>& antecessor) {
-    cor[u] = "cinza";
-    Aresta* adj = primeiroListaAdj(u);
-    //cout << u << " cor : " << cor[u] << " antecessor : " << antecessor[u] << endl;
-    while (adj != NULL) {
-        int v = adj->_v2();
-        if (cor[v] == "branco") {
-          antecessor[v] = u;          
-          visitaDFS(v, cor, antecessor);
-          //cout << v << " cor : " << cor[v] << " antecessor : " << antecessor[v] << endl;
-        }
-        adj = proxAdj(u);
+	
+  bool Grafo::isHomeomorphicToK33(const std::vector<Aresta*>& subgraph) {
+    // verifica se o subgrafo tem 6 vertices e 9 arestas
+    if (subgraph.size() != 9) return false;
+    std::set<int> vertices;
+    for (std::vector<Aresta*>::const_iterator it = subgraph.begin(); it != subgraph.end(); ++it) {
+      Aresta* aresta = *it;
+      vertices.insert(aresta->_v1());
+      vertices.insert(aresta->_v2());
     }
+    if (vertices.size() != 6) return false;
 
-    cor[u] = "preto";
-  }
-  //VERIFICA SE O GRAFO POSSUI CICLO ULTILIZANDO DFS
-  bool Grafo::temCiclo() {
-    vector<string> cor(numVertices, "branco");
-
-    for (int u = 0; u < numVertices; u++) {
-        if (cor[u] == "branco") {
-            if (visitaDFSComCiclo(u, cor))
-                return true; // Se encontrou um ciclo, retorna verdadeiro
-        }
+    // verifiaca se o subgrafo é bipartido com 3 vertices em cada partição
+    std::set<int> partition1, partition2;
+    for (std::set<int>::iterator it = vertices.begin(); it != vertices.end(); ++it) {
+      int v = *it;
+      if (partition1.count(v)) {
+        partition2.insert(v);
+      } else {
+        partition1.insert(v);
+      }
     }
+    if (partition1.size() != 3 || partition2.size() != 3) return false;
 
-    return false; // Se não encontrou ciclos, retorna falso
-  }
-  bool Grafo::visitaDFSComCiclo(int u, vector<string>& cor) {
-    cor[u] = "cinza";
-    Aresta* adj = primeiroListaAdj(u);
-
-    while (adj != NULL) {
-        int v = adj->_v2();
-        if (cor[v] == "cinza")
-            return true; // Se encontrou um vértice cinza, significa que há um ciclo
-
-        if (cor[v] == "branco" && visitaDFSComCiclo(v, cor))
-            return true; // Se encontrou um ciclo em uma chamada recursiva, retorna verdadeiro
-
-        adj = proxAdj(u);
-    }
-
-    cor[u] = "preto";
-    return false; // Não encontrou ciclo a partir deste vértice
-  }
-  //VERIFICAR QUANTIDADE DE COMPONETES DO GRAFO (QUANTIDADE DE GRAFOS)
-  int Grafo::contarComponentes() {
-    vector<string> cor(numVertices, "branco");
-    vector<int> antecessor(numVertices, -1);
-    int numComponentes = 0;
-    for (int u = 0; u < numVertices; u++) {
-        if (cor[u] == "branco") {
-          numComponentes++;
-          visitaDFS(u, cor, antecessor);
-        }
-    }
-    return numComponentes;
+    return true; // subgrafo é k3,3,3
   } 
-  //MOSTRA O CAMINHO MAIS CURTO ENTRE DOIS VERTICES
-  void Grafo::imprimeCaminho(int u, int v){
-    vector <string> cor (numVertices, "branco");
-    vector <int> dist (numVertices, INT8_MAX);
-    vector <int> antecessor(numVertices, -1);
-
-    visitaBfs(u, cor, dist, antecessor);
-
-    if (u == v) {
-        cout << v << " " ; 
-    } else if (antecessor[v] == -1) {
-        cout << "Não existe caminho de " << u << " para " << v << endl;
-    } else {
-        imprimeCaminho(u, antecessor[v]); 
-        cout << v << " "; 
-    }
-  }
-  //MOSTRAR UMA ORDENAÇÃO TOPOLOGICA PARA O GRAFO
-  void Grafo::visitaDfsTopologica(int u, vector<string>& cor, stack<int>& pilha) {
-    cor[u] = "cinza";
-
-    Aresta* adj = primeiroListaAdj(u);
-    while (adj != NULL) {
-        int v = adj->_v2();
-        if (cor[v] == "branco") {
-            visitaDfsTopologica(v, cor, pilha);
-        }
-        adj = proxAdj(u);
-    }
-
-    cor[u] = "preto";
-    pilha.push(u);
-}
-  void Grafo::ordenacaoTopologica(){
-    vector<string> cor(numVertices, "branco");
-    stack <int> pilha;
-
-    for(int i = 0; i < numVertices; i++){
-      if(cor[i] == "branco"){
-        visitaDfsTopologica(i , cor, pilha);
-      }
-    }
-
-    //imprimir ordenação topologica
-    cout << "Ordenação topologica : ";
-    while (!pilha.empty()){
-      cout << pilha.top() << " ";
-      pilha.pop();
-    }
-    cout << endl;
-  }
-  
-
-
