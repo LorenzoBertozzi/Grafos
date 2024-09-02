@@ -21,7 +21,7 @@ O código é uma implementação do Teorema de Kuratowski em C++. Consiste em um
 
 ## Exemplo de Uso
 
-'''
+```
   Grafo g; // create a graph
   // add vertices and edges to the graph
   bool isPlanar = g.isPlanar(); // test planarity
@@ -30,7 +30,7 @@ O código é uma implementação do Teorema de Kuratowski em C++. Consiste em um
   } else {
       cout << "The graph is not planar." << endl;
   }
-'''
+```
 
 ## Conclusão
 O código fornecido é uma implementação do Teorema de Kuratowski, que fornece uma ferramenta poderosa para testar a planaridade de um gráfico. Ao compreender os conceitos do Teorema de Kuratowski e como o código funciona, você pode usar esta implementação para testar a planaridade dos gráficos em seus próprios aplicativos.
