@@ -7,7 +7,6 @@
 #include <array>
 #include <cstring>
 #include <float.h>
-#include <stack>
 using namespace std;
 
 	class Grafo {
@@ -15,7 +14,6 @@ using namespace std;
 		class Aresta {
 	  private:
 	    int v1, v2, peso; 
-
 	  public: 
 	    Aresta (int v1, int v2, int peso) {
 	      this->v1 = v1; this->v2 = v2; this->peso = peso;
@@ -54,8 +52,6 @@ using namespace std;
 	  }; 
     Lista<Celula> *adj; 
     int numVertices;
-    vector <int> conjunto;
-
   public:
     Grafo( istream &in );
     Grafo (int numVertices);	  
@@ -70,26 +66,65 @@ using namespace std;
 	  void imprime () const ;
 	  int _numVertices () const;
 	  Grafo *grafoTransposto ();
-    ~Grafo ();	
+    ~Grafo ();
 
-    void buscaEmLargura ();
-    void visitaBfs (int u, vector <string>& cor, vector <int>&dist, vector <int>&antecessor);
-    void buscaEmProfundidade();
-    void visitaDFS(int u, vector<string>& cor, vector<int>& antecessor);
-    bool temCiclo(); // verifica se o grafo tem cilho 
-    bool visitaDFSComCiclo(int u, vector<string>& cor);//busca ciclo do grafo
-    int contarComponentes(); //retorna quantidade de vertices
-    void visitaDfsTopologica(int u, vector<string>& cor, stack<int>& pilha);
-    void ordenacaoTopologica();//Mostrar uma ordenação topológica
-    void imprimeCaminho (int u, int v);
+    int fordFulkerson(int s, int t) {
+      int maxFlow = 0;
+      Grafo *residualGraph = new Grafo(*this);
+      while (true) {
+        Aresta *path = bfs(residualGraph, s, t);
+        if (path == NULL) break;
+        int pathFlow = INT_MAX;
+        int v = path->_v2();
+        while (v != s) {
+          Aresta *a = residualGraph->primeiroListaAdj(v);
+          while (a != NULL && a->_v2() != path->_v1()) {
+            a = residualGraph->proxAdj(v);
+          }
+          pathFlow = min(pathFlow, a->_peso());
+          v = a->_v1();
+        }
+        maxFlow += pathFlow;
+        v = path->_v2();
+        while (v != s) {
+          Aresta *a = residualGraph->primeiroListaAdj(v);
+          while (a != NULL && a->_v2() != path->_v1()) {
+            a = residualGraph->proxAdj(v);
+          }
+          residualGraph->retiraAresta(a->_v1(), a->_v2());
+          residualGraph->insereAresta(a->_v2(), a->_v1(), a->_peso() - pathFlow);
+          v = a->_v1();
+        }
+      }
+      delete residualGraph;
+      return maxFlow;
+    }
 
-    void kruskal();
-    void criaConjunto();
-    int encontreConjunto(int x);
-    void unirConjunto(int x, int y);
+  private:
+    Aresta *bfs(Grafo *residualGraph, int s, int t) {
+      vector<bool> visited(residualGraph->_numVertices(), false);
+      queue<int> q;
+      q.push(s);
+      visited[s] = true;
+      Aresta *path = NULL;
+      while (!q.empty()) {
+        int v = q.front();
+        q.pop();
+        for (Aresta *a = residualGraph->primeiroListaAdj(v); a != NULL; a = residualGraph->proxAdj(v)) {
+          if (!visited[a->_v2()] && a->_peso() > 0) {
+            visited[a->_v2()] = true;
+            q.push(a->_v2());
+            if (a->_v2() == t) {
+              path = a;
+              return path;
+            }
+          }
+        }
+      }
+      return NULL;
+    }
+  };  
 
-    void prim(int raiz);
-	};
 
   Grafo::Grafo( istream &in )
   {
@@ -105,6 +140,7 @@ using namespace std;
       delete a;
     }
   }
+
   Grafo::Grafo (int numVertices) {
   	this->adj = new Lista<Celula>[numVertices]; 
   	this->numVertices = numVertices; 	  	
@@ -113,6 +149,7 @@ using namespace std;
   	this->adj = new Lista<Celula>[numVertices]; 
   	this->numVertices = numVertices; 	  	
   }	  
+
   Grafo::Aresta *lerAresta () {
     cout << "Aresta:" << endl;
     cout << "  V1:"; int v1 = 0;
@@ -123,6 +160,7 @@ using namespace std;
     cin >> peso;
     return new Grafo::Aresta (v1, v2, peso);
   }
+
   void Grafo::insereAresta (int v1, int v2, int peso) {
     Celula item (v2, peso); 
     this->adj[v1].insere (item); 
@@ -163,9 +201,7 @@ using namespace std;
       cout << endl;
     }
   }
-  int Grafo::_numVertices () const { 
-    return this->numVertices; 
-  }
+  int Grafo::_numVertices () const { return this->numVertices; }
   Grafo *Grafo::grafoTransposto () {  	
     Grafo *grafoT = new Grafo (this->numVertices); 
     for (int v = 0; v < this->numVertices; v++)
@@ -182,171 +218,6 @@ using namespace std;
   Grafo::~Grafo () {
     delete [] this->adj;
   }	  
-  //BUSCA EM LARGURA
-  void Grafo::buscaEmLargura(){
-    vector <string> cor (numVertices, "branco");
-    vector <int> dist (numVertices, INT8_MAX);
-    vector <int> antecessor(numVertices, -1);
-
-    for (int u = 0; u < numVertices; u++){
-      if(cor[u] == "branco"){
-        visitaBfs(u, cor, dist, antecessor);
-      }
-    }
-  }	
-  void Grafo::visitaBfs(int u, vector <string>& cor, vector <int>&dist, vector <int>&antecessor){
-    dist[u] = 0;
-    cor[u] = "cinza";
-
-    //cout << "-" << u << " cor: " << cor[u] << " dist: " << dist[u] << " ant: " << antecessor[u] << endl;
-
-    queue<int> fila;
-    fila.push(u);
-
-    while (!fila.empty()){
-      u = fila.front();
-      fila.pop();
-      Aresta* adj = primeiroListaAdj(u);
-      while (adj != NULL){
-        int v= adj->_v2();
-        if(cor[v] == "branco"){
-          cor[v] = "cinza";
-          dist[v] = dist[u] + 1;
-          antecessor[v] = u;
-          fila.push(v);
-
-          //cout << "-" << v << " cor: " << cor[v] << " dist: " << dist[v] << " ant: " << antecessor[v] << endl;
-        }
-        adj = proxAdj(u);
-      }
-      cor[u] = "preto";
-
-      //cout << "-" << u << " cor: " << cor[u] << " dist: " << dist[u] << " ant: " << antecessor[u]  << "\n" << endl;
-    }
-  }
-  //BUSCA EM PROFUNDIDADE
-  void Grafo::buscaEmProfundidade() {
-    vector<string> cor(numVertices, "branco");
-    vector<int> antecessor(numVertices, -1);
-
-    for (int u = 0; u < numVertices; u++) {
-        if (cor[u] == "branco") {
-          //cout << u << " cor : " << cor[u] << " antecessor : " << antecessor[u] << endl;
-          visitaDFS(u, cor, antecessor);
-        }
-    }
-  }
-  void Grafo::visitaDFS(int u, vector<string>& cor, vector<int>& antecessor) {
-    cor[u] = "cinza";
-    Aresta* adj = primeiroListaAdj(u);
-    //cout << u << " cor : " << cor[u] << " antecessor : " << antecessor[u] << endl;
-    while (adj != NULL) {
-        int v = adj->_v2();
-        if (cor[v] == "branco") {
-          antecessor[v] = u;          
-          visitaDFS(v, cor, antecessor);
-          //cout << v << " cor : " << cor[v] << " antecessor : " << antecessor[v] << endl;
-        }
-        adj = proxAdj(u);
-    }
-
-    cor[u] = "preto";
-  }
-  //VERIFICA SE O GRAFO POSSUI CICLO ULTILIZANDO DFS
-  bool Grafo::temCiclo() {
-    vector<string> cor(numVertices, "branco");
-
-    for (int u = 0; u < numVertices; u++) {
-        if (cor[u] == "branco") {
-            if (visitaDFSComCiclo(u, cor))
-                return true; // Se encontrou um ciclo, retorna verdadeiro
-        }
-    }
-
-    return false; // Se não encontrou ciclos, retorna falso
-  }
-  bool Grafo::visitaDFSComCiclo(int u, vector<string>& cor) {
-    cor[u] = "cinza";
-    Aresta* adj = primeiroListaAdj(u);
-
-    while (adj != NULL) {
-        int v = adj->_v2();
-        if (cor[v] == "cinza")
-            return true; // Se encontrou um vértice cinza, significa que há um ciclo
-
-        if (cor[v] == "branco" && visitaDFSComCiclo(v, cor))
-            return true; // Se encontrou um ciclo em uma chamada recursiva, retorna verdadeiro
-
-        adj = proxAdj(u);
-    }
-
-    cor[u] = "preto";
-    return false; // Não encontrou ciclo a partir deste vértice
-  }
-  //VERIFICAR QUANTIDADE DE COMPONETES DO GRAFO (QUANTIDADE DE GRAFOS)
-  int Grafo::contarComponentes() {
-    vector<string> cor(numVertices, "branco");
-    vector<int> antecessor(numVertices, -1);
-    int numComponentes = 0;
-    for (int u = 0; u < numVertices; u++) {
-        if (cor[u] == "branco") {
-          numComponentes++;
-          visitaDFS(u, cor, antecessor);
-        }
-    }
-    return numComponentes;
-  } 
-  //MOSTRA O CAMINHO MAIS CURTO ENTRE DOIS VERTICES
-  void Grafo::imprimeCaminho(int u, int v){
-    vector <string> cor (numVertices, "branco");
-    vector <int> dist (numVertices, INT8_MAX);
-    vector <int> antecessor(numVertices, -1);
-
-    visitaBfs(u, cor, dist, antecessor);
-
-    if (u == v) {
-        cout << v << " " ; 
-    } else if (antecessor[v] == -1) {
-        cout << "Não existe caminho de " << u << " para " << v << endl;
-    } else {
-        imprimeCaminho(u, antecessor[v]); 
-        cout << v << " "; 
-    }
-  }
-  //MOSTRAR UMA ORDENAÇÃO TOPOLOGICA PARA O GRAFO
-  void Grafo::visitaDfsTopologica(int u, vector<string>& cor, stack<int>& pilha) {
-    cor[u] = "cinza";
-
-    Aresta* adj = primeiroListaAdj(u);
-    while (adj != NULL) {
-        int v = adj->_v2();
-        if (cor[v] == "branco") {
-            visitaDfsTopologica(v, cor, pilha);
-        }
-        adj = proxAdj(u);
-    }
-
-    cor[u] = "preto";
-    pilha.push(u);
-}
-  void Grafo::ordenacaoTopologica(){
-    vector<string> cor(numVertices, "branco");
-    stack <int> pilha;
-
-    for(int i = 0; i < numVertices; i++){
-      if(cor[i] == "branco"){
-        visitaDfsTopologica(i , cor, pilha);
-      }
-    }
-
-    //imprimir ordenação topologica
-    cout << "Ordenação topologica : ";
-    while (!pilha.empty()){
-      cout << pilha.top() << " ";
-      pilha.pop();
-    }
-    cout << endl;
-  }
-  
 
 
+		
