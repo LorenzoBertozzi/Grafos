@@ -7,6 +7,7 @@
 #include <array>
 #include <cstring>
 #include <float.h>
+#include <limits>
 using namespace std;
 
 	class Grafo {
@@ -66,65 +67,21 @@ using namespace std;
 	  void imprime () const ;
 	  int _numVertices () const;
 	  Grafo *grafoTransposto ();
-    ~Grafo ();
+    ~Grafo ();	 
 
-    int fordFulkerson(int s, int t) {
-      int maxFlow = 0;
-      Grafo *residualGraph = new Grafo(*this);
-      while (true) {
-        Aresta *path = bfs(residualGraph, s, t);
-        if (path == NULL) break;
-        int pathFlow = INT_MAX;
-        int v = path->_v2();
-        while (v != s) {
-          Aresta *a = residualGraph->primeiroListaAdj(v);
-          while (a != NULL && a->_v2() != path->_v1()) {
-            a = residualGraph->proxAdj(v);
-          }
-          pathFlow = min(pathFlow, a->_peso());
-          v = a->_v1();
-        }
-        maxFlow += pathFlow;
-        v = path->_v2();
-        while (v != s) {
-          Aresta *a = residualGraph->primeiroListaAdj(v);
-          while (a != NULL && a->_v2() != path->_v1()) {
-            a = residualGraph->proxAdj(v);
-          }
-          residualGraph->retiraAresta(a->_v1(), a->_v2());
-          residualGraph->insereAresta(a->_v2(), a->_v1(), a->_peso() - pathFlow);
-          v = a->_v1();
-        }
-      }
-      delete residualGraph;
-      return maxFlow;
-    }
-
+    int fordFulkerson(int source, int sink);
+    void imprimirGrafoResidual() const;
+    void imprimirFluxo() const;
+    void imprimirCaminhosAumentantes() const;
+  
   private:
-    Aresta *bfs(Grafo *residualGraph, int s, int t) {
-      vector<bool> visited(residualGraph->_numVertices(), false);
-      queue<int> q;
-      q.push(s);
-      visited[s] = true;
-      Aresta *path = NULL;
-      while (!q.empty()) {
-        int v = q.front();
-        q.pop();
-        for (Aresta *a = residualGraph->primeiroListaAdj(v); a != NULL; a = residualGraph->proxAdj(v)) {
-          if (!visited[a->_v2()] && a->_peso() > 0) {
-            visited[a->_v2()] = true;
-            q.push(a->_v2());
-            if (a->_v2() == t) {
-              path = a;
-              return path;
-            }
-          }
-        }
-      }
-      return NULL;
-    }
-  };  
-
+    std::vector<std::vector<int>> capacity; // Matriz de capacidades
+    std::vector<std::vector<int>> flow;     // Matriz de fluxo
+    std::vector<std::vector<int>> parentPath; // Armazena o caminho de aumento
+    bool bfs(int source, int sink, std::vector<int>& parent);
+    void printPath(int source, int sink, const std::vector<int>& parent) const;
+    void initCapacityAndFlow();
+	};
 
   Grafo::Grafo( istream &in )
   {
@@ -140,7 +97,6 @@ using namespace std;
       delete a;
     }
   }
-
   Grafo::Grafo (int numVertices) {
   	this->adj = new Lista<Celula>[numVertices]; 
   	this->numVertices = numVertices; 	  	
@@ -160,7 +116,6 @@ using namespace std;
     cin >> peso;
     return new Grafo::Aresta (v1, v2, peso);
   }
-
   void Grafo::insereAresta (int v1, int v2, int peso) {
     Celula item (v2, peso); 
     this->adj[v1].insere (item); 
@@ -201,7 +156,9 @@ using namespace std;
       cout << endl;
     }
   }
-  int Grafo::_numVertices () const { return this->numVertices; }
+  int Grafo::_numVertices () const { 
+    return this->numVertices;
+  }
   Grafo *Grafo::grafoTransposto () {  	
     Grafo *grafoT = new Grafo (this->numVertices); 
     for (int v = 0; v < this->numVertices; v++)
@@ -219,5 +176,126 @@ using namespace std;
     delete [] this->adj;
   }	  
 
+  // Método para inicializar as matrizes de capacidade e fluxo
+  // Método para inicializar as matrizes de capacidade e fluxo
+  void Grafo::initCapacityAndFlow() {
+    int n = this->numVertices;
+    capacity.assign(n, std::vector<int>(n, 0));
+    flow.assign(n, std::vector<int>(n, 0));
 
-		
+    // Preencher a matriz de capacidades
+    for (int u = 0; u < n; ++u) {
+      Celula* item = this->adj[u]._primeiro();
+      while (item != NULL) {
+        capacity[u][item->vertice] = item->peso;
+        item = this->adj[u].proximo();
+      }
+    }
+  }
+
+  //busca em largura
+  bool Grafo::bfs(int source, int sink, std::vector<int>& parent) {
+    int n = this->numVertices;
+    std::vector<bool> visited(n, false);
+    std::queue<int> q;
+
+    q.push(source);
+    visited[source] = true;
+    parent[source] = -1;
+
+    while (!q.empty()) {
+      int u = q.front();
+      q.pop();
+
+      for (int v = 0; v < n; ++v) {
+        if (!visited[v] && capacity[u][v] - flow[u][v] > 0) {
+          q.push(v);
+          visited[v] = true;
+          parent[v] = u;
+          if (v == sink) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  int Grafo::fordFulkerson(int source, int sink) {
+    initCapacityAndFlow();
+
+    std::vector<int> parent(numVertices);
+    int maxFlow = 0;
+
+    while (bfs(source, sink, parent)) {
+      int pathFlow = std::numeric_limits<int>::max();
+      int s = sink;
+
+      while (s != source) {
+        int u = parent[s];
+        pathFlow = std::min(pathFlow, capacity[u][s] - flow[u][s]);
+        s = u;
+      }
+
+      s = sink;
+      while (s != source) {
+        int u = parent[s];
+        flow[u][s] += pathFlow;
+        flow[s][u] -= pathFlow;
+        s = u;
+      }
+
+      maxFlow += pathFlow;
+      cout << "Caminho de aumento encontrado com fluxo: " << pathFlow << endl;
+      printPath(source, sink, parent);
+    }
+
+    cout << "Fluxo Máximo: " << maxFlow << endl;
+    return maxFlow;
+  }
+
+  void Grafo::printPath(int source, int sink, const std::vector<int>& parent) const {
+    if (parent[sink] == -1) {
+      cout << "Nenhum caminho de aumento encontrado." << endl;
+      return;
+    }
+    cout << "Caminho de aumento: ";
+    int v = sink;
+    vector<int> path;
+    while (v != source) {
+      path.push_back(v);
+      v = parent[v];
+    }
+    path.push_back(source);
+    reverse(path.begin(), path.end());
+
+    for (size_t i = 0; i < path.size(); ++i) {
+      cout << path[i];
+      if (i < path.size() - 1) cout << " -> ";
+    }
+    cout << endl;
+  }
+
+  void Grafo::imprimirGrafoResidual() const {
+    cout << "Grafo Residual:" << endl;
+    for (int u = 0; u < numVertices; ++u) {
+      cout << "Vertice " << u << ":";
+      for (int v = 0; v < numVertices; ++v) {
+        if (capacity[u][v] - flow[u][v] > 0) {
+          cout << " -> " << v << " (Capacidade Residual: " << capacity[u][v] - flow[u][v] << ")";
+        }
+      }
+      cout << endl;
+    }
+  }
+
+  void Grafo::imprimirFluxo() const {
+    cout << "Fluxo no Grafo:" << endl;
+    for (int u = 0; u < numVertices; ++u) {
+      cout << "Vertice " << u << ":";
+      for (int v = 0; v < numVertices; ++v) {
+        if (flow[u][v] > 0) {
+          cout << " -> " << v << " (Fluxo: " << flow[u][v] << ")";
+        }
+      }
+      cout << endl;
+    }
+  }

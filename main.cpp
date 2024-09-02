@@ -8,5 +8,9 @@ int main (int argc, char **argv)
     Grafo *grafo = new Grafo (in);
     grafo->imprime ();  
 
-    grafo->fordFulkerson(0 ,6);
-}   
+    grafo->fordFulkerson(0, 5);
+
+    grafo->imprimirGrafoResidual();
+    grafo->imprimirFluxo();
+
+}
