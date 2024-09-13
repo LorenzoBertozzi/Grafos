@@ -1,5 +1,3 @@
-#include "Lista.h" 
-#include "FPHeapMinIndireto.h"
 #include <iostream>
 #include <vector>
 #include <queue>
@@ -7,53 +5,58 @@
 #include <array>
 #include <cstring>
 #include <float.h>
-#include <set>
+#include "Lista.h" 
+#include "FPHeapMinIndireto.h"
+
 using namespace std;
 
-	class Grafo {
-	public:
-		class Aresta {
-	  private:
-	    int v1, v2, peso; 
-	  public: 
-	    Aresta (int v1, int v2, int peso) {
-	      this->v1 = v1; this->v2 = v2; this->peso = peso;
-	    }
-	    int _peso () { return this->peso; }
-	    int _v1 () { return this->v1; }
-	    int _v2 () { return this->v2; }
-	    ~Aresta(){}
-	  };
-	private:	
-		class Celula {
-    friend class Grafo;
-    friend ostream& operator<< (ostream& out, const Celula& celula) {
-      out << "vertice:" << celula.vertice << endl;
-      out << "peso:"    << celula.peso    << endl;
-      return out;
-    }    
-		private:	
-	    int vertice, peso;
-	  public:
-	    Celula (int v, int p) {
-	    	this->vertice = v; this->peso = p;
-	    }
-	    Celula (const Celula& cel) { *this = cel; }      
-      bool operator== (const Celula& celula) const {
-        return this->vertice == celula.vertice;
-      }
-      bool operator!= (const Celula& celula) const {
-        return this->vertice != celula.vertice;
-      }
-      const Celula& operator= (const Celula& cel) {     
-        this->vertice = cel.vertice; this->peso = cel.peso;
-        return *this; // @{\it permite atribui\c{c}\~oes encadeadas}@
-      }      
-      ~Celula () {}	    
-	  }; 
-    Lista<Celula> *adj; 
+class Grafo {
+public:
+    class Aresta {
+    private:
+        int v1, v2, peso;
+    public: 
+        Aresta (int v1, int v2, int peso) {
+            this->v1 = v1; this->v2 = v2; this->peso = peso;
+        }
+        int _peso () { return this->peso; }
+        int _v1 () { return this->v1; }
+        int _v2 () { return this->v2; }
+        ~Aresta(){}
+    };
+
+private:    
+    class Celula {
+        friend class Grafo;
+        friend ostream& operator<< (ostream& out, const Celula& celula) {
+            out << "vertice:" << celula.vertice << endl;
+            out << "peso:"    << celula.peso    << endl;
+            return out;
+        }    
+    private:    
+        int vertice, peso;
+    public:
+        Celula (int v, int p) {
+            this->vertice = v; this->peso = p;
+        }
+        Celula (const Celula& cel) { *this = cel; }      
+        bool operator== (const Celula& celula) const {
+            return this->vertice == celula.vertice;
+        }
+        bool operator!= (const Celula& celula) const {
+            return this->vertice != celula.vertice;
+        }
+        const Celula& operator= (const Celula& cel) {     
+            this->vertice = cel.vertice; this->peso = cel.peso;
+            return *this; 
+        }      
+        ~Celula () {}        
+    }; 
+
+    Lista<Celula> *adj;
     int numVertices;
-  public:
+
+public:
     Grafo( istream &in );
     Grafo (int numVertices);	  
     Grafo (int numVertices, int numArestas);	  
@@ -67,14 +70,13 @@ using namespace std;
 	  void imprime () const ;
 	  int _numVertices () const;
 	  Grafo *grafoTransposto ();
-    ~Grafo ();	 
 
-    bool isPlanar(); 
-  
-  private:
-    bool isHomeomorphicToK5(const std::vector<Aresta*>& subgraph);
-    bool isHomeomorphicToK33(const std::vector<Aresta*>& subgraph);
-	};
+    bool contemK5OuSubdivisao();
+    bool contemK33OuSubdivisao();
+    bool ehPlanar();
+
+    ~Grafo();
+};
 
   Grafo::Grafo( istream &in )
   {
@@ -90,6 +92,7 @@ using namespace std;
       delete a;
     }
   }
+
   Grafo::Grafo (int numVertices) {
   	this->adj = new Lista<Celula>[numVertices]; 
   	this->numVertices = numVertices; 	  	
@@ -109,6 +112,7 @@ using namespace std;
     cin >> peso;
     return new Grafo::Aresta (v1, v2, peso);
   }
+
   void Grafo::insereAresta (int v1, int v2, int peso) {
     Celula item (v2, peso); 
     this->adj[v1].insere (item); 
@@ -149,9 +153,7 @@ using namespace std;
       cout << endl;
     }
   }
-  int Grafo::_numVertices () const { 
-    return this->numVertices; 
-  }
+  int Grafo::_numVertices () const { return this->numVertices; }
   Grafo *Grafo::grafoTransposto () {  	
     Grafo *grafoT = new Grafo (this->numVertices); 
     for (int v = 0; v < this->numVertices; v++)
@@ -169,84 +171,65 @@ using namespace std;
     delete [] this->adj;
   }	  
 
-  bool Grafo::isPlanar(){
-    //step 1 : encontrar todos subgrafos de Kuratowski
-    std::vector< std::vector<Aresta*> > kuratowskiSubgraphs;
-    for (int v = 0; v < this->numVertices; v++) {
-      for (Aresta* adj = this->primeiroListaAdj(v); adj != NULL; adj = this->proxAdj(v)) {
-        int v2 = adj->_v2();
-        for (Aresta* adj2 = this->primeiroListaAdj(v2); adj2 != NULL; adj2 = this->proxAdj(v2)) {
-          int v3 = adj2->_v2();
-          if (v != v3 && this->existeAresta(v, v3)) {
-            // encontre um K4 subgraph (grafo completo com 4 vertices)
-            std::vector<Aresta*> subgraph;
-            subgraph.push_back(adj);
-            subgraph.push_back(adj2);
-            subgraph.push_back(this->retiraAresta(v, v3));
-            kuratowskiSubgraphs.push_back(subgraph);
-          }
+  bool Grafo::contemK5OuSubdivisao() {
+    // Verificar todos os subconjuntos de 5 vértices
+    if (this->numVertices < 5) return false; // Não pode conter K5 se não tem ao menos 5 vértices
+    
+    vector<int> vertices(this->numVertices);
+    for (int i = 0; i < this->numVertices; ++i) vertices[i] = i;
+
+    // Gerar combinações de 5 vértices e verificar se formam K5
+    do {
+        int v1 = vertices[0], v2 = vertices[1], v3 = vertices[2], v4 = vertices[3], v5 = vertices[4];
+        // Verificar se existe uma aresta entre todos os pares
+        if (existeAresta(v1, v2) && existeAresta(v1, v3) && existeAresta(v1, v4) && existeAresta(v1, v5) &&
+            existeAresta(v2, v3) && existeAresta(v2, v4) && existeAresta(v2, v5) &&
+            existeAresta(v3, v4) && existeAresta(v3, v5) && existeAresta(v4, v5)) {
+            return true; // Encontrado subgrafo isomórfico a K5
         }
-      }
-    }
-    //step 2: checando os subgrafos se são k5 ou k3,3
-    for (std::vector<std::vector<Aresta*> >::iterator it = kuratowskiSubgraphs.begin(); it != kuratowskiSubgraphs.end(); ++it) {
-      std::vector<Aresta*>& subgraph = *it;
-      if (isHomeomorphicToK5(subgraph) || isHomeomorphicToK33(subgraph)) {
-        return false; // Graph is not planar
-      }
-    }
-    return true; //grafo é planar
-  }
+    } while (next_permutation(vertices.begin(), vertices.end()));
 
-  bool Grafo::isHomeomorphicToK5(const std::vector<Aresta*>& subgraph) {
-    // verifica se o subgrafo tem 5 vertices e 10 arestas
-    if (subgraph.size() != 10) return false;
-    std::set<int> vertices;
-    for (std::vector<Aresta*>::const_iterator it = subgraph.begin(); it != subgraph.end(); ++it) {
-      Aresta* aresta = *it;
-      vertices.insert(aresta->_v1());
-      vertices.insert(aresta->_v2());
-    }
-    if (vertices.size() != 5) return false;
+    return false;
+}
 
-    // verifica se o grafo é conectado a nao tem ciclos de larguura 3
-    for (std::set<int>::iterator it = vertices.begin(); it != vertices.end(); ++it) {
-      int v = *it;
-      if (this->listaAdjVazia(v)) return false;
-      for (Aresta* adj = this->primeiroListaAdj(v); adj != NULL; adj = this->proxAdj(v)) {
-        int v2 = adj->_v2();
-        if (vertices.count(v2) && this->existeAresta(v, v2)) {
-          // Fencotra cilo de largura 3
-          return false;
+bool Grafo::contemK33OuSubdivisao() {
+    if (this->numVertices < 6) return false; // Não pode conter K33 se não tem ao menos 6 vértices
+
+    vector<int> vertices(this->numVertices);
+    for (int i = 0; i < this->numVertices; ++i) vertices[i] = i;
+
+    // Gerar combinações de 6 vértices e verificar se formam K33
+    do {
+        int a1 = vertices[0], a2 = vertices[1], a3 = vertices[2];
+        int b1 = vertices[3], b2 = vertices[4], b3 = vertices[5];
+
+        // Verificar se existe uma aresta entre todos os pares de {a1, a2, a3} com {b1, b2, b3}
+        if (existeAresta(a1, b1) && existeAresta(a1, b2) && existeAresta(a1, b3) &&
+            existeAresta(a2, b1) && existeAresta(a2, b2) && existeAresta(a2, b3) &&
+            existeAresta(a3, b1) && existeAresta(a3, b2) && existeAresta(a3, b3)) {
+            return true; // Encontrado subgrafo isomórfico a K33
         }
-      }
-    }
+    } while (next_permutation(vertices.begin(), vertices.end()));
 
-    return true; // subgrafo é k5
-  }
-	
-  bool Grafo::isHomeomorphicToK33(const std::vector<Aresta*>& subgraph) {
-    // verifica se o subgrafo tem 6 vertices e 9 arestas
-    if (subgraph.size() != 9) return false;
-    std::set<int> vertices;
-    for (std::vector<Aresta*>::const_iterator it = subgraph.begin(); it != subgraph.end(); ++it) {
-      Aresta* aresta = *it;
-      vertices.insert(aresta->_v1());
-      vertices.insert(aresta->_v2());
-    }
-    if (vertices.size() != 6) return false;
+    return false;
+}
 
-    // verifiaca se o subgrafo é bipartido com 3 vertices em cada partição
-    std::set<int> partition1, partition2;
-    for (std::set<int>::iterator it = vertices.begin(); it != vertices.end(); ++it) {
-      int v = *it;
-      if (partition1.count(v)) {
-        partition2.insert(v);
-      } else {
-        partition1.insert(v);
-      }
+bool Grafo::ehPlanar() {
+    // Passo 1: Verificar a condição de Euler para planaridade
+    int m = 0; // Número de arestas
+    for (int v = 0; v < this->numVertices; ++v) {
+        Aresta *adj = this->primeiroListaAdj(v);
+        while (adj != NULL) {
+            m++;
+            adj = this->proxAdj(v);
+        }
     }
-    if (partition1.size() != 3 || partition2.size() != 3) return false;
+    m /= 2; // Como contamos duas vezes as arestas
 
-    return true; // subgrafo é k3,3,3
-  } 
+    if (m > 3 * this->numVertices - 6) return false; // Não planar se m > 3n - 6
+
+    // Passo 2: Verificar se contém K5 ou K33
+    if (contemK5OuSubdivisao() || contemK33OuSubdivisao()) return false;
+
+    return true; // Se passou nas verificações, é planar
+}
